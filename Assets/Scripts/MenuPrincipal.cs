@@ -5,29 +5,17 @@ public class MenuPrincipal : MonoBehaviour
 {
     public static MenuPrincipal shared;
 
-    [SerializeField]
-    private GameManager gameManager;
+    [SerializeField] private GameManager gameManager;
+    [SerializeField] private CanvasGroup canvas;
 
-    public bool activarFadeOut = false;
-    public bool activarFadeIn = false;
-
-    public CanvasGroup canvas;
-
-    public IEnumerator volverAlMenu;
-    public IEnumerator salirDelJuego;
-
-    public bool vBajo = false;
-
-    public bool vAlto = false;
-
-    void Awake()
+    private void Awake()
     {
         shared = this;
     }
 
-    void Start()
+    private void Start()
     {
-        if(gameManager.canvasMenuPrincipal.enabled == true)
+        if (gameManager.canvasMenuPrincipal.enabled)
         {
             gameManager.ingameCanvas.enabled = false;
             gameManager.canvasComoJugar.enabled = false;
@@ -35,42 +23,103 @@ public class MenuPrincipal : MonoBehaviour
         }
     }
 
-    void Update()
+    // ---------- FADES ----------
+    public IEnumerator Fade(CanvasGroup cg, float from, float to, float duration)
     {
-        GameControlTiempo.gameControl.EfectoFade(canvas, activarFadeIn, activarFadeOut);
+        float t = 0;
+        cg.alpha = from;
 
-        if (vBajo == true)
+        while (t < duration)
         {
-            GameManager.shared.music.volume += Time.deltaTime;
+            t += Time.deltaTime;
+            cg.alpha = Mathf.Lerp(from, to, t / duration);
+            yield return null;
         }
 
-        if (vAlto == true)
-        {
-            GameManager.shared.music.volume -= Time.deltaTime;
-        }
+        cg.alpha = to;
     }
 
+    // ---------- ÁUDIO ----------
+    private IEnumerator FadeVolume(float from, float to, float duration)
+    {
+        float t = 0;
+        var audio = GameManager.shared.music;
+        audio.volume = from;
+
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            audio.volume = Mathf.Lerp(from, to, t / duration);
+            yield return null;
+        }
+
+        audio.volume = to;
+    }
+
+    // ---------- BOTONES ----------
     public void IniciarJuego()
     {
-        activarFadeOut = false;
-
-        activarFadeIn = true;
-
-        StartCoroutine("CambioPantalla", 1.0f);
+        StartCoroutine(IniciarJuegoRoutine());
     }
 
     public void IniciarJuegoNivel2()
     {
-        activarFadeOut = false;
-        activarFadeIn = true;
+        StartCoroutine(IniciarJuegoNivel2Routine());
+    }
 
-        StartCoroutine("CambiaPantallaNivel2", 1.0f);
+    // ---------- RUTINAS ----------
+    private IEnumerator IniciarJuegoRoutine()
+    {
+        // Fade out del menú
+        yield return StartCoroutine(Fade(canvas, 1, 0, 1f));
+
+        // Fade del siguiente canvas
+        EndGameTiempo.shared.fadeOut = false;
+        EndGameTiempo.shared.fadeIn = true;
+
+        yield return new WaitForSeconds(1f);
+
+        gameManager.startGame();
+    }
+
+    private IEnumerator IniciarJuegoNivel2Routine()
+    {
+        yield return StartCoroutine(Fade(canvas, 1, 0, 1f));
+
+        EndGameTiempo.shared.fadeOut = false;
+        EndGameTiempo.shared.fadeIn = true;
+
+        yield return new WaitForSeconds(1f);
+
+        GameControlTiempo.gameControl.StartGame();
+    }
+
+    public IEnumerator VolverAlMenu(float tiempo)
+    {
+        // Fade out del InGame
+        InGame.shared.activarFadeIn = true;
+        InGame.shared.activarFadeOut = false;
+
+        comoJugar.shared.activarFadeIn = true;
+        comoJugar.shared.activarFadeOut = false;
+
+        yield return new WaitForSeconds(tiempo);
+
+        // Música sube nuevamente
+        GameManager.shared.music.Play();
+        yield return StartCoroutine(FadeVolume(0, 1, 1f));
+
+        Eleccion_Cartas.shared.ReiniciarTodo();
+
+        // Fade del menú principal
+        yield return StartCoroutine(Fade(canvas, 0, 1, 1f));
+
+        gameManager.CambioDeEstado(canvas_menu.menuPrincipal);
     }
 
     public IEnumerator VolverAlMenuNivel2(float tiempo)
     {
         InGameTiempo.shared.fadeIn = true;
-
         InGameTiempo.shared.fadeOut = false;
 
         Timer_2.timer.stopTimer();
@@ -79,79 +128,24 @@ public class MenuPrincipal : MonoBehaviour
 
         GameManager.shared.music.Play();
 
-        vAlto = false;
-
-        vBajo = true;
-
         Eleccion_Cartas.shared.ReiniciarTodo();
 
-        activarFadeIn = false;
-
-        activarFadeOut = true;
-
-        gameManager.CambioDeEstado(canvas_menu.menuPrincipal);
-    }
-
-    public IEnumerator VolverAlMenu(float tiempo)
-    {
-        InGame.shared.activarFadeIn = true;
-
-        InGame.shared.activarFadeOut = false;
-
-        vAlto = true;
-        vBajo = false;
-
-        comoJugar.shared.activarFadeIn = true;
-
-        comoJugar.shared.activarFadeOut = false;
-
-        yield return new WaitForSeconds(tiempo);
-
-        GameManager.shared.music.Play();
-
-        vAlto = false;
-
-        vBajo = true;
-
-        Eleccion_Cartas.shared.ReiniciarTodo();
-
-        activarFadeIn = false;
-
-        activarFadeOut = true;
+        yield return StartCoroutine(Fade(canvas, 0, 1, 1f));
 
         gameManager.CambioDeEstado(canvas_menu.menuPrincipal);
     }
 
     public IEnumerator Salir_Del_Juego(float tiempo)
     {
-        activarFadeIn = true;
+        // Fade out general del menú
+        yield return StartCoroutine(Fade(canvas, 1, 0, 1f));
 
-        activarFadeOut = false;
-
+        // Fade específico del end game
         EndGameTiempo.shared.fadeOut = false;
         EndGameTiempo.shared.fadeIn = true;
 
         yield return new WaitForSeconds(tiempo);
 
         Application.Quit();
-    }
-
-    //Para iniciar el nivel cl�sico
-    public IEnumerator CambioPantalla(float tiempo)
-    {
-        yield return new WaitForSeconds(tiempo);
-
-        gameManager.startGame();
-    }
-
-    //Inicia el nivel por tiempo
-    public IEnumerator CambiaPantallaNivel2(float tiempo)
-    {
-        EndGameTiempo.shared.fadeOut = false;
-        EndGameTiempo.shared.fadeIn = true;
-
-        yield return new WaitForSeconds(tiempo);
-
-        GameControlTiempo.gameControl.StartGame();
     }
 }
