@@ -2,32 +2,31 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class comoJugar : MonoBehaviour
+public class ComoJugar : MonoBehaviour
 {
-    public static comoJugar shared;
+    public static ComoJugar Instance { get; private set; }
 
-    [SerializeField]
-    private GameManager gameManager;
+    [SerializeField] private GameManager gameManager;
 
-    public Text texto1, texto2;
-    public Button button1, button2;
+    [SerializeField] private Text texto1, texto2;
+    [SerializeField] private Button button1, button2;
 
-    public IEnumerator cambiarAComo;
+    [SerializeField] private CanvasGroup canvas;
 
-    public CanvasGroup canvas;
-
-    public bool activarFadeIn = false;
-    public bool activarFadeOut = false;
-
-    void Awake()
+    private void Awake()
     {
-        shared = this;    
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
     }
 
-    // Start is called before the first frame update
-    void Start()
+    private void Start()
     {
-        if (gameManager.canvasComoJugar.enabled == true)
+        if (gameManager.canvasComoJugar.enabled)
         {
             gameManager.ingameCanvas.enabled = false;
             gameManager.canvasMenuPrincipal.enabled = false;
@@ -35,47 +34,54 @@ public class comoJugar : MonoBehaviour
         }
     }
 
-    void Update()
+    // ---------- UI ----------
+    public void BotonSiguiente()
     {
-        if(activarFadeOut == true)
+        SetPagina(true);
+    }
+
+    public void BotonAnterior()
+    {
+        SetPagina(false);
+    }
+
+    private void SetPagina(bool pagina2)
+    {
+        texto1.gameObject.SetActive(!pagina2);
+        texto2.gameObject.SetActive(pagina2);
+
+        button1.gameObject.SetActive(!pagina2);
+        button2.gameObject.SetActive(pagina2);
+    }
+
+    // ---------- Fades ----------
+    public IEnumerator Fade(float from, float to, float duration)
+    {
+        float t = 0;
+        canvas.alpha = from;
+
+        while (t < duration)
         {
-            canvas.alpha += Time.deltaTime;
+            t += Time.deltaTime;
+            canvas.alpha = Mathf.Lerp(from, to, t / duration);
+            yield return null;
         }
 
-        if(activarFadeIn == true)
-        {
-            canvas.alpha -= Time.deltaTime;
-        }
+        canvas.alpha = to;
     }
 
-    public void botonSiguiente()
-    {
-        texto1.gameObject.SetActive(false);
-        texto2.gameObject.SetActive(true);
-        button1.gameObject.SetActive(false);
-        button2.gameObject.SetActive(true);
-    }
-
-    public void botonAnterior()
-    {
-        texto1.gameObject.SetActive(true);
-        texto2.gameObject.SetActive(false);
-        button1.gameObject.SetActive(true);
-        button2.gameObject.SetActive(false);
-    }
-
+    // ---------- Cambio a menú jugar ----------
     public IEnumerator CambiarAJugar(float tiempo)
     {
-        MenuPrincipal.shared.activarFadeIn = true;
-
-        MenuPrincipal.shared.activarFadeOut = false;
+        // Fade del menú principal
+        StartCoroutine(MenuPrincipal.shared.Fade(1, 0, 1f));
 
         yield return new WaitForSeconds(tiempo);
 
-        activarFadeOut = true;
+        // Fade de esta pantalla
+        yield return StartCoroutine(Fade(0, 1, 1f));
 
-        activarFadeIn = false;
-
+        // Cambiar de estado
         gameManager.CambioDeEstado(canvas_menu.comoJugar);
     }
 }
