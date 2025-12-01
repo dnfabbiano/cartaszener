@@ -3,26 +3,27 @@ using UnityEngine.UI;
 
 public enum canvas_menu
 {
-    current,
     menuPrincipal,
     comoJugar,
     inGame,
     endGame,
     inGameNivel2,
     endGameNivel2
-};
+}
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager shared;
 
-    //public Canvas menuCanvas;
+    // Canvases
+    [Header("Canvases")]
     public Canvas canvasMenuPrincipal;
     public Canvas canvasComoJugar;
     public Canvas ingameCanvas;
     public Canvas endGameCanvas;
 
-    //UI InGame
+    // UI InGame
+    [Header("UI InGame")]
     public Image CartaOculta;
     public Text AciertosText;
     public Text esCorrecto;
@@ -30,116 +31,154 @@ public class GameManager : MonoBehaviour
     public Text Rondas;
     public Button[] botones;
 
-    //Variables InGame
+    // Variables InGame
     public int cantidadAciertos;
     public int cantidadFallos;
     public int cantidadRondas;
     public int cambiarCarta;
 
-    //Musica
+    // Música
     public AudioSource music;
-
-    //Botones musica
     public Button musicOn, musicOff;
 
     private Timer timer;
-    [SerializeField]
-    private ControlEleccionCarta eleccionCarta;
+    private Sprite cartaMisteriosa;
+    private canvas_menu currentState;
 
-    void Awake()
+    private void Awake()
     {
-        shared = this;    
+        shared = this;
     }
 
-    void Start()
+    private void Start()
     {
         timer = GetComponent<Timer>();
 
-        canvasMenuPrincipal.enabled = true;
+        // Cacheo de carta misteriosa (evita carga repetida)
+        cartaMisteriosa = Resources.Load<Sprite>("Sprites/CartaMisteriosa/0");
+
+        CambioDeEstado(canvas_menu.menuPrincipal);
     }
-    public void OcultarCarta()
+
+    // ------------------------
+    //      PANTALLAS
+    // ------------------------
+    public void CambioDeEstado(canvas_menu estado)
     {
-        CartaOculta.sprite = Resources.Load<Sprite>("Sprites/CartaMisteriosa/" + 0);
-        esCorrecto.text = "";
+        currentState = estado;
 
-        cantidadRondas++;
-        Rondas.text = "Cartas: " + cantidadRondas.ToString() + "/25";
+        // Apago todos primero
+        canvasMenuPrincipal.enabled = false;
+        canvasComoJugar.enabled = false;
+        ingameCanvas.enabled = false;
+        endGameCanvas.enabled = false;
+        GameControlTiempo.gameControl.CanvasInGameNivel2.enabled = false;
+        GameControlTiempo.gameControl.CanvasEndGameNivel2.enabled = false;
 
-        //Vuelve a activar los botones una vez que la carta se vuelve a ocultar
-        for (int i = 0; i < 5; i++)
+        // Enciendo sólo el que corresponde
+        switch (estado)
         {
-            botones[i].enabled = true;
+            case canvas_menu.menuPrincipal:
+                canvasMenuPrincipal.enabled = true;
+                break;
+
+            case canvas_menu.comoJugar:
+                canvasComoJugar.enabled = true;
+                break;
+
+            case canvas_menu.inGame:
+                ingameCanvas.enabled = true;
+                break;
+
+            case canvas_menu.endGame:
+                endGameCanvas.enabled = true;
+                break;
+
+            case canvas_menu.inGameNivel2:
+                GameControlTiempo.gameControl.CanvasInGameNivel2.enabled = true;
+                break;
+
+            case canvas_menu.endGameNivel2:
+                GameControlTiempo.gameControl.CanvasEndGameNivel2.enabled = true;
+                break;
         }
     }
 
+    // ---------------------------
+    //      INICIO DE JUEGO
+    // ---------------------------
     public void startGame()
     {
-        InGame.shared.pantallaJuego = InGame.shared.Pantalla_Juego(1.0f);
+        ResetStats();
+        UpdateUI();
 
-        StartCoroutine(InGame.shared.pantallaJuego);
-
-        cantidadRondas = 1;
-
-        AciertosText.text = "Aciertos: " + cantidadAciertos.ToString();
-        Fallos.text = "Fallos: " + cantidadFallos.ToString();
-        Rondas.text = "Cartas: " + cantidadRondas.ToString() + "/25";
-
-        CartaOculta.sprite = Resources.Load<Sprite>("Sprites/CartaMisteriosa/" + 0);
+        CartaOculta.sprite = cartaMisteriosa;
         esCorrecto.text = "";
+
+        StartCoroutine(InGame.shared.Pantalla_Juego(1.0f));
     }
 
     public void Reinicio()
     {
-        CambioDeEstado(canvas_menu.inGame);
+        ResetStats();
+        UpdateUI();
 
+        CambioDeEstado(canvas_menu.inGame);
+    }
+
+    private void ResetStats()
+    {
         cantidadAciertos = 0;
         cantidadFallos = 0;
         cantidadRondas = 1;
         cambiarCarta = 0;
-
-        AciertosText.text = "Aciertos: " + cantidadAciertos.ToString();
-        Fallos.text = "Fallos: " + cantidadFallos.ToString();
-        Rondas.text = "Cartas: " + cantidadRondas.ToString() + "/25";
     }
 
+    private void UpdateUI()
+    {
+        AciertosText.text = $"Aciertos: {cantidadAciertos}";
+        Fallos.text = $"Fallos: {cantidadFallos}";
+        Rondas.text = $"Cartas: {cantidadRondas}/25";
+    }
+
+    // ------------------------
+    //       END GAME
+    // ------------------------
     public void endGame()
     {
         PlayerPrefs.SetInt("aciertos", cantidadAciertos);
         PlayerPrefs.SetInt("fallos", cantidadFallos);
 
         timer.stopTimer();
-
         CambioDeEstado(canvas_menu.endGame);
     }
 
+    // ------------------------
+    //       BOTONES
+    // ------------------------
     public void CerrarJuego()
     {
-        MenuPrincipal.shared.salirDelJuego = MenuPrincipal.shared.Salir_Del_Juego(1.0f);
-
-        StartCoroutine(MenuPrincipal.shared.salirDelJuego);
+        StartCoroutine(MenuPrincipal.shared.Salir_Del_Juego(1.0f));
     }
 
     public void VolverAlMenuPrincipal()
     {
-        MenuPrincipal.shared.volverAlMenu = MenuPrincipal.shared.VolverAlMenu(1.0f);
-
-        StartCoroutine(MenuPrincipal.shared.volverAlMenu);
+        StartCoroutine(MenuPrincipal.shared.VolverAlMenu(1.0f));
     }
 
     public void VolverAlMenuPrincipalNivel2()
     {
-        MenuPrincipal.shared.volverAlMenu = MenuPrincipal.shared.VolverAlMenuNivel2(1.0f);
-
-        StartCoroutine(MenuPrincipal.shared.volverAlMenu);
+        StartCoroutine(MenuPrincipal.shared.VolverAlMenuNivel2(1.0f));
     }
 
     public void ComoJugar()
     {
-        comoJugar.shared.cambiarAComo = comoJugar.shared.CambiarAJugar(1.0f);
-
-        StartCoroutine(comoJugar.shared.cambiarAComo);
+        StartCoroutine(comoJugar.shared.CambiarAJugar(1.0f));
     }
 
+    // ------------------------
+    //       MÚSICA
+    // ------------------------
     public void MusicON()
     {
         music.Play();
@@ -156,71 +195,20 @@ public class GameManager : MonoBehaviour
         musicOff.gameObject.SetActive(false);
     }
 
-    public void CambioDeEstado(canvas_menu estado)
+    // ------------------------
+    //      CARTA OCULTA
+    // ------------------------
+    public void OcultarCarta()
     {
-        switch (estado)
-        {
-            case canvas_menu.menuPrincipal:
+        CartaOculta.sprite = cartaMisteriosa;
+        esCorrecto.text = "";
 
-                canvasMenuPrincipal.enabled = true;
-                canvasComoJugar.enabled = false;
-                ingameCanvas.enabled = false;
-                endGameCanvas.enabled = false;
-                GameControlTiempo.gameControl.CanvasInGameNivel2.enabled = false;
-                GameControlTiempo.gameControl.CanvasEndGameNivel2.enabled = false;
-                break;
+        cantidadRondas++;
+        Rondas.text = $"Cartas: {cantidadRondas}/25";
 
-            case canvas_menu.comoJugar:
-                canvasMenuPrincipal.enabled = false;
-                canvasComoJugar.enabled = true;
-                ingameCanvas.enabled = false;
-                endGameCanvas.enabled = false;
-                GameControlTiempo.gameControl.CanvasInGameNivel2.enabled = false;
-                GameControlTiempo.gameControl.CanvasEndGameNivel2.enabled = false;
-                break;
-
-            case canvas_menu.inGame:
-
-                canvasMenuPrincipal.enabled = false;
-                canvasComoJugar.enabled = false;
-                ingameCanvas.enabled = true;
-                endGameCanvas.enabled = false;
-                GameControlTiempo.gameControl.CanvasInGameNivel2.enabled = false;
-                GameControlTiempo.gameControl.CanvasEndGameNivel2.enabled = false;
-                break;
-
-            case canvas_menu.endGame:
-
-                canvasMenuPrincipal.enabled = false;
-                canvasComoJugar.enabled = false;
-                ingameCanvas.enabled = false;
-                endGameCanvas.enabled = true;
-                GameControlTiempo.gameControl.CanvasInGameNivel2.enabled = false;
-                GameControlTiempo.gameControl.CanvasEndGameNivel2.enabled = false;
-                break;
-
-            case canvas_menu.inGameNivel2:
-
-                canvasMenuPrincipal.enabled = false;
-                canvasComoJugar.enabled = false;
-                ingameCanvas.enabled = false;
-                endGameCanvas.enabled = false;
-                GameControlTiempo.gameControl.CanvasInGameNivel2.enabled = true;
-                GameControlTiempo.gameControl.CanvasEndGameNivel2.enabled = false;
-                break;
-
-            case canvas_menu.endGameNivel2:
-
-                canvasMenuPrincipal.enabled = false;
-                canvasComoJugar.enabled = false;
-                ingameCanvas.enabled = false;
-                endGameCanvas.enabled = false;
-                GameControlTiempo.gameControl.CanvasInGameNivel2.enabled = false;
-                GameControlTiempo.gameControl.CanvasEndGameNivel2.enabled = true;
-                break;
-        }
-
-        estado = canvas_menu.current;
+        foreach (var b in botones)
+            b.enabled = true;
     }
 }
+
 
